@@ -15,8 +15,9 @@ plugins:
   - tag: mem_cache
     type: cache
     args:
-      size: 1024
-      lazy_cache_ttl: 17200
+      size: 10240
+      lazy_cache_ttl: 86400
+      cache_everything: true
   
   # 修改应答 ttl
   - tag: 'modify_ttl'
@@ -128,7 +129,7 @@ plugins:
     type: hosts
     args:
       hosts:
-        - '14.test.com 2407:f430:0:4127::24'
+        - '14.test.xyz 2607::14'
 
   # 匹配本地域名的插件
   - tag: query_is_local_domain
@@ -162,7 +163,7 @@ plugins:
     type: sequence
     args:
       exec:      
-        # - hosts
+        - hosts
         - mem_cache
         - _no_ecs
 
