@@ -2,213 +2,294 @@ log:
   level: info
   file: '/tmp/mosdns.log'
 
+# 参考:https://jasper1024.com/jasper/20211223034622/
+# 数据源
 data_providers:
+  - tag: geoip
+    file: /usr/share/v2ray/geoip.dat
+    auto_reload: true
   - tag: geosite
     file: /usr/share/v2ray/geosite.dat
     auto_reload: true
-  - tag: cn
-    file: /usr/share/v2ray/geoip.dat
-    auto_reload: true
 
 plugins:
+  ################# 可执行插件 ################
   # 缓存
   - tag: mem_cache
     type: cache
     args:
-      size: 10240
-      lazy_cache_ttl: 86400
-      cache_everything: true
-  
+      size: 10240 # 条目数量
+      lazy_cache_ttl: 86400 # lazy cache 生存时间 一天
+      lazy_cache_reply_ttl: 30 # 返回过期应答的 TTL
+      cache_everything: true # 有大量 edns 时启用
+
   # 修改应答 ttl
-  - tag: 'modify_ttl'
-    type: 'ttl'
+  - tag: modify_ttl
+    type: ttl
     args:
       minimal_ttl: 300
       maximum_ttl: 3600
 
+  ################ DNS #################
   # 阿里 dns
   - tag: ali
-    type: fast_forward
+    type: forward
     args:
       upstream:
-        - addr: "223.5.5.5"
-        - addr: "https://dns.alidns.com/dns-query" 
-          dial_addr: "223.5.5.5"            
-          trusted: true 
-        - addr: "tls://dns.alidns.com"
-          dial_addr: "223.5.5.5"
-          trusted: true       
+        - addr: "https://dns.alidns.com/dns-query" # 服务器地址
+          ip_addr: # 手动指定服务器的 IP 地址 可以配置多个
+            - "2400:3200:baba::1"
+            - "223.5.5.5"
+            - "2400:3200::1"
+            - "223.6.6.6"
+          trusted: true # 是否是可信服务器
+        - addr: "tls://dns.alidns.com" # 服务器地址
+          ip_addr: # 手动指定服务器的 IP 地址 可以配置多个
+            - "2400:3200:baba::1"
+            - "223.5.5.5"
+            - "2400:3200::1"
+            - "223.6.6.6"
+          trusted: true # 是否是可信服务器
 
-  # 腾讯 dnspod
+      bootstrap:
+        - "tls://1.1.1.1"
+        - "https://223.5.5.5/dns-query"
+      timeout: 5 # 请求超时时间秒
+
+  # dnspod
   - tag: dnspod
-    type: fast_forward
+    type: forward
     args:
       upstream:
-        - addr: "119.29.29.29"
-        - addr: "https://doh.pub/dns-query" 
-          dial_addr: "1.12.12.12"
-          trusted: true 
-        - addr: "tls://dot.pub" 
-          dial_addr: "1.12.12.12"
-          trusted: true           
+        - addr: "https://doh.pub/dns-query" # 服务器地址
+          ip_addr: # 手动指定服务器的 IP 地址 可以配置多个
+            - "2402:4e00::"
+            - "119.29.29.29"
+          trusted: true # 是否是可信服务器
+        - addr: "tls://dot.pub" # 服务器地址
+          ip_addr: # 手动指定服务器的 IP 地址 可以配置多个
+            - "2402:4e00::"
+            - "119.29.29.29"
+          trusted: true # 是否是可信服务器
+
+      bootstrap:
+        - "tls://1.1.1.1"
+        - "https://223.5.5.5/dns-query"
+      timeout: 5 # 请求超时时间秒
 
   # 本地 dns 备用
   - tag: localdns
-    type: fast_forward
+    type: forward
     args:
       upstream:
-        - addr: "10.1.1.1:53"
+        - addr: "10.1.1.1:53" # 替换为本地dns
 
   # google dns
   - tag: google
-    type: fast_forward
+    type: forward
     args:
       upstream:
-        - addr: "https://dns.google/dns-query" 
-          dial_addr: "8.8.4.4"
-          trusted: true 
-        - addr: "tls://dns.google" 
-          dial_addr: "8.8.4.4"
-          trusted: true
-      
+        - addr: "https://dns.google/dns-query" # 服务器地址
+          ip_addr: # 手动指定服务器的 IP 地址 可以配置多个
+            - "2001:4860:4860::8844"
+            - "8.8.4.4"
+            - "2001:4860:4860::8888"
+            - "8.8.8.8"
+          trusted: true # 是否是可信服务器
+
   # cloudflare
   - tag: cloudflare
+    type: forward
+    args:
+      upstream:
+        - addr: "https://cloudflare-dns.com/dns-query" # 服务器地址
+          ip_addr: # 手动指定服务器的 IP 地址 可以配置多个
+            - "2606:4700:4700::1001"
+            - "1.0.0.1"
+            - "2606:4700:4700::1111"
+            - "1.1.1.1"
+          trusted: true # 是否是可信服务器
+
+  # google dns
+  - tag: google_dot
     type: fast_forward
     args:
       upstream:
-        - addr: "https://cloudflare-dns.com/dns-query" 
+        - addr: "tls://dns.google"
+          dial_addr: "8.8.4.4"
+          trusted: true
+          enable_pipeline: true
+        - addr: "tls://dns.google"
+          dial_addr: "2001:4860:4860::8888"
+          trusted: true
+          enable_pipeline: true
+        - addr: "tls://dns.google"
+          dial_addr: "8.8.8.8"
+          trusted: true
+          enable_pipeline: true
+
+  # cloudflare
+  - tag: cloudflare_dot
+    type: fast_forward
+    args:
+      upstream:
+        - addr: "tls://1dot1dot1dot1.cloudflare-dns.com"
+          dial_addr: "2606:4700:4700::1001"
+          trusted: true
+          enable_pipeline: true
+        - addr: "tls://1dot1dot1dot1.cloudflare-dns.com"
           dial_addr: "1.0.0.1"
-          trusted: true 
-        - addr: "tls://cloudflare-dns.com" 
+          trusted: true
+          enable_pipeline: true
+        - addr: "tls://1dot1dot1dot1.cloudflare-dns.com"
+          dial_addr: "2606:4700:4700::1111"
+          trusted: true
+          enable_pipeline: true
+        - addr: "tls://1dot1dot1dot1.cloudflare-dns.com"
           dial_addr: "1.0.0.1"
-          trusted: true 
-          
+          trusted: true
+          enable_pipeline: true
+
   # doq 备用
   - tag: adguard
     type: forward
     args:
       upstream:
-        - addr: "quic://dns-unfiltered.adguard" # 服务器地址
+        - addr: "quic://dns-unfiltered.adguard.com" # 服务器地址
           ip_addr: # 手动指定服务器的 IP 地址 可以配置多个
+            - "2a10:50c0::1:ff"
             - "94.140.14.140"
+            - "2a10:50c0::2:ff"
             - "94.140.14.141"
           trusted: true # 是否是可信服务器
 
+  ################ 匹配器 #################
+
+  # 查询 - cn 域名
+  - tag: query_cn
+    type: query_matcher
+    args:
+      domain:
+        - "provider:geosite:cn"
+
+  # 查询 - gfw
+  - tag: query_gfw
+    type: query_matcher
+    args:
+      domain:
+        - "provider:geosite:gfw"
+
+  # 查询 - 非 cn 域名
+  - tag: query_notcn
+    type: query_matcher
+    args:
+      domain:
+        - "provider:geosite:geolocation-!cn"
+
+  # 查询 - ad
+  - tag: query_ad
+    type: query_matcher
+    args:
+      domain:
+        - "provider:geosite:category-ads-all"
+
+  # 返回 - cn IP
+  - tag: response_cnip
+    type: response_matcher
+    args:
+      ip:
+        - "provider:geoip:cn"
+
+  ################ 序列 #################
+  
+  # (5/8)新增此字段，匹配本地域名的插件
+  - tag: hosts
+    type: hosts
+    args:
+      hosts:
+        - ''
+
   # local 序列
-  - tag: forward_local
+  - tag: local
     type: sequence
     args:
       exec:
         - primary:
-          - parallel: # 并行
-              - - "ali" # 执行序列 #1。
-              - - "dnspod" # 执行序列 #2。
+          - parallel:
+              - - "ali" 
+              - - "dnspod"
           secondary:
             - localdns # 备用本地
-          fast_fallback: 400 # 这里建议设置成 primary 服务器正常延时的 2~5 倍 单位: 毫秒。
+          fast_fallback: 600 # 这里建议设置成 primary 服务器正常延时的 2~5 倍 单位: 毫秒。
           always_standby: true
 
   # remote 序列
-  - tag: forward_remote
+  - tag: remote
     type: sequence
     args:
       exec:
         - primary:
-            - parallel: # 并行
-                - - "google" # 执行序列 #1。
-                - - "cloudflare" # 执行序列 #2。
+          - parallel:
+              - - google
+              - - cloudflare
+              - - google_dot
+              - - cloudflare_dot
+              - - adguard
           secondary:
             - adguard # 备用 adguard
           fast_fallback: 600 # 这里建议设置成 primary 服务器正常延时的 2~5 倍 单位: 毫秒。
           always_standby: true
 
-
-  ################ 匹配器插件 #################
-  # 匹配本地域名的插件
-  - tag: hosts
-    type: hosts
-    args:
-      hosts:
-        - '14.test.xyz 2607::14'
-
-  # 匹配本地域名的插件
-  - tag: query_is_local_domain
-    type: query_matcher
-    args:
-      domain:
-        - 'provider:geosite:cn,apple-cn,steam@cn'        
-
-  # 匹配非本地域名的插件
-  - tag: query_is_non_local_domain
-    type: query_matcher
-    args:
-      domain:
-        - 'provider:geosite:geolocation-!cn'
-
-  # 匹配广告域名的插件
-  - tag: query_is_ad_domain
-    type: query_matcher
-    args:
-      domain:
-        - 'provider:geosite:category-ads-all'
-
-  # 匹配本地 IP 的插件
-  - tag: response_has_local_ip
-    type: response_matcher
-    args:
-      ip:
-        - 'provider:cn:cn'
-
+  # main_sequence
   - tag: main_sequence
     type: sequence
     args:
-      exec:      
-        - hosts
-        - mem_cache
-        - _no_ecs
+      exec:
+        - if: query_ad # ad
+          exec:
+            - _new_nxdomain_response # 空应答
+            - _return
 
-        - if: query_is_ad_domain
+        - if: "query_cn" # cn域名
           exec:
-            - _new_nxdomain_response
-            - _return        
+            - _pad_query
+            - local # 用本地服务器
+            - if: "response_cnip" # 结果是 cnip
+              exec:
+                - _return # 结束
 
-        - if: query_is_local_domain
+        - if: query_notcn # 已知的 非cn域名
           exec:
-            - forward_local
-            - if: response_has_local_ip
+            - _prefer_ipv4 # 优先 IPv4
+            - _pad_query
+            - remote # 无污染
+            - if: "!response_cnip" # 结果是 非cnip
               exec:
-                - _return
-        
-        - if: query_is_non_local_domain
-          exec:
-            - _prefer_ipv4               # 优先 IPv4
-            - forward_remote             # 用远程服务器获取应答
-            - if: "! response_has_local_ip"
-              exec:
-                - _return
-        
-        # 剩下的未知域名用 IP 分流。原理类似 ChinaDNS，但更稳定。
-        # 详细分流原理请参考 `fallback` 的工作流程。
-        - primary:
-            - forward_local     # 本地服务器获取应答。
-            - if: "(! response_has_local_ip) && [_response_valid_answer]"
-              exec:
-                - _drop_response            # 丢掉。
+                - _return # 结束
+
+        - primary: #其他所有情况
+            - _prefer_ipv4
+            - _pad_query
+            - remote
           secondary:
             - _prefer_ipv4
-            - forward_remote
-          fast_fallback: 300  # 这里建议设置成 local 服务器正常延时的 2~5 倍。
-                              # 这个延时保证了 local 延时偶尔变高时，其结果不会被 remote 抢答。
-                              # 如果 local 超过这个延时还没响应，可以假设 local 出现了问题。
-                              # 这时用就采用 remote 的应答。单位: 毫秒。
+            - _pad_query
+            - local
+          fast_fallback: 400 # 这里建议设置成 local 服务器正常延时的 2~5 倍 单位: 毫秒
           always_standby: true
 
-
-        - modify_ttl
+  - tag: sequence
+    type: sequence
+    args:
+      exec:
+        - hosts # 增加此行，先查hosts
+        - mem_cache # 缓存
+        - main_sequence # 运行主执行序列
+        - modify_ttl # 修改 ttl
 
 servers:
-  - exec: main_sequence
-    listeners:
+  - exec: sequence
+    listeners: # 端口修改成5335
       - protocol: udp
         addr: "[::1]:5335"
       - protocol: tcp
